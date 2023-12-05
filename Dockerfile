@@ -1,20 +1,36 @@
-# Use an official Golang runtime as a parent image
-FROM golang:1.20
+# Accept the Go version for the image to be set as a build argument.
+ARG GO_VERSION=1.20
 
-# Set the working directory inside the container
-WORKDIR /app
+# First stage: build the executable.
+FROM golang:${GO_VERSION}-alpine AS builder
 
-# Copy the local package files to the container's workspace.
-COPY go.mod go.sum ./
+# Git is required for fetching the dependencies.
+RUN apk add --no-cache git
+RUN apk add ca-certificates
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-RUN go mod download
+# Set the working directory outside $GOPATH to enable the support for modules.
+WORKDIR /src
 
-# Copy the source code from the current directory to the /app directory in the container
-COPY . .
+# Fetch dependencies first; they are less susceptible to change on every build
+# and will therefore be cached for speeding up the next build
+COPY ./go.mod ./go.sum ./
+RUN GO111MODULE=on go mod download
 
-# Build the application
-RUN go build -o main .
+# Import the code from the context.
+COPY ./ ./
 
-# Run the executable
-CMD ["./main"]
+# Build the executable to `/app`. Mark the build as statically linked.
+RUN GO111MODULE=on CGO_ENABLED=0 go build \
+    -installsuffix 'static' \
+    -o /app .
+
+# Final stage: the running container.
+FROM scratch AS final
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Import the compiled executable from the first stage.
+COPY --from=builder /app /app
+
+# Run the compiled binary.
+ENTRYPOINT ["/app"]
