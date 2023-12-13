@@ -169,9 +169,9 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
+		txOpts.Nonce = new(big.Int).Add(txOpts.Nonce, big.NewInt(1))
 		fmt.Printf("Nonce %d\n", txOpts.Nonce.Uint64())
 		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(suggested).String(), bumpPricePercent)
-		txOpts.Nonce = new(big.Int).Add(txOpts.Nonce, big.NewInt(1))
 		txOpts.GasPrice = bumpGasPrice(suggested)
 		fmt.Printf("Bumped to price: %s gwei\n", weiToGwei(txOpts.GasPrice).String())
 		tx, err = tokenBindings.Approve(txOpts, rollupAddr, maxUint256)
@@ -185,11 +185,11 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
+		txOpts.Nonce = new(big.Int).Add(txOpts.Nonce, big.NewInt(1))
 		fmt.Printf("Nonce %d\n", txOpts.Nonce.Uint64())
 		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(suggested).String(), bumpPricePercent)
 		txOpts.GasPrice = bumpGasPrice(suggested)
 		fmt.Printf("Bumped to price: %s gwei\n", weiToGwei(txOpts.GasPrice).String())
-		txOpts.Nonce = new(big.Int).Add(txOpts.Nonce, big.NewInt(1))
 		tx, err = tokenBindings.Approve(txOpts, chalManagerAddr, maxUint256)
 		if err != nil {
 			panic(err)
