@@ -92,6 +92,12 @@ func bumpGasPrice(suggested *big.Int) *big.Int {
 	return new(big.Int).Add(suggested, increasedGasPrice)
 }
 
+func weiToGwei(wei *big.Int) *big.Int {
+	// 1 Gwei = 10^9 Wei
+	gwei := new(big.Int).Div(wei, big.NewInt(1000000000))
+	return gwei
+}
+
 func mintStakeToken() {
 	// Your existing logic goes here
 	// You can use the flag variables like valPrivKeys, l1ChainIdStr, etc., directly here
@@ -122,7 +128,7 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Suggested gas price: %s wei, bumping by %d percent\n", suggested.String(), bumpPricePercent)
+		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(suggested).String(), bumpPricePercent)
 		txOpts.GasPrice = bumpGasPrice(suggested)
 
 		rollupAddr := common.HexToAddress(rollupAddrStr)
@@ -202,7 +208,7 @@ func bridgeEth() {
 		if err != nil {
 			log.Fatalf("Failed to suggest gas price: %v", err)
 		}
-		fmt.Printf("Suggested gas price: %s wei, bumping by %d percent\n", gasPrice.String(), bumpPricePercent)
+		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(gasPrice).String(), bumpPricePercent)
 		suggested := bumpGasPrice(gasPrice)
 		tx := types.NewTransaction(nonce, toAddress, depositAmount, gasLimit, suggested, data)
 		signer := types.NewCancunSigner(l1ChainId)
