@@ -225,7 +225,6 @@ func bridgeEth() {
 			log.Fatalf("Failed to suggest gas price: %v", err)
 		}
 		fiftyPercent := new(big.Int).Div(new(big.Int).Mul(gasPrice, big.NewInt(50)), big.NewInt(100))
-		// Increase the suggested gas price by 20%
 		newGasPrice := new(big.Int).Add(gasPrice, fiftyPercent)
 		tx := types.NewTransaction(nonce, toAddress, depositAmount, gasLimit, newGasPrice, data)
 		signer := types.NewCancunSigner(l1ChainId)
@@ -233,9 +232,17 @@ func bridgeEth() {
 		if err != nil {
 			log.Fatalf("Failed to sign transaction: %v", err)
 		}
-		err = client.SendTransaction(ctx, signedTx)
-		if err != nil {
-			log.Fatalf("Failed to send transaction: %v", err)
+		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
+			err2 := client.SendTransaction(ctx, signedTx)
+			if err2 != nil {
+				return false, err2
+			}
+			if err2 = challenge_testing.WaitForTx(ctx, client, signedTx); err2 != nil {
+				return false, err2
+			}
+			return true, nil
+		}); err != nil {
+			panic(err)
 		}
 		fmt.Printf("Sent transaction: %s", signedTx.Hash().Hex())
 	}
