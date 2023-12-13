@@ -114,9 +114,8 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
-		fiftyPercent := new(big.Int).Div(new(big.Int).Mul(suggested, big.NewInt(50)), big.NewInt(100))
-		newGasPrice := new(big.Int).Add(suggested, fiftyPercent)
-		txOpts.GasPrice = newGasPrice
+		doubled := new(big.Int).Mul(suggested, big.NewInt(2))
+		txOpts.GasPrice = doubled
 
 		rollupAddr := common.HexToAddress(rollupAddrStr)
 		rollupBindings, err := rollupgen.NewRollupUserLogicCaller(rollupAddr, client)
@@ -224,9 +223,8 @@ func bridgeEth() {
 		if err != nil {
 			log.Fatalf("Failed to suggest gas price: %v", err)
 		}
-		fiftyPercent := new(big.Int).Div(new(big.Int).Mul(gasPrice, big.NewInt(50)), big.NewInt(100))
-		newGasPrice := new(big.Int).Add(gasPrice, fiftyPercent)
-		tx := types.NewTransaction(nonce, toAddress, depositAmount, gasLimit, newGasPrice, data)
+		doubled := new(big.Int).Mul(gasPrice, big.NewInt(2))
+		tx := types.NewTransaction(nonce, toAddress, depositAmount, gasLimit, doubled, data)
 		signer := types.NewCancunSigner(l1ChainId)
 		signedTx, err := types.SignTx(tx, signer, privateKey)
 		if err != nil {
