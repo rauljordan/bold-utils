@@ -12,8 +12,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
+	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -112,8 +114,8 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
-		twentyPercent := new(big.Int).Div(new(big.Int).Mul(suggested, big.NewInt(20)), big.NewInt(100))
-		newGasPrice := new(big.Int).Add(suggested, twentyPercent)
+		fiftyPercent := new(big.Int).Div(new(big.Int).Mul(suggested, big.NewInt(50)), big.NewInt(100))
+		newGasPrice := new(big.Int).Add(suggested, fiftyPercent)
 		txOpts.GasPrice = newGasPrice
 
 		rollupAddr := common.HexToAddress(rollupAddrStr)
@@ -145,17 +147,44 @@ func mintStakeToken() {
 
 		depositAmount := new(big.Int).SetUint64(gweiToDeposit * params.GWei)
 		txOpts.Value = depositAmount
-		if _, err := tokenBindings.Deposit(txOpts); err != nil {
+		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
+			tx, err2 := tokenBindings.Deposit(txOpts)
+			if err2 != nil {
+				return false, err2
+			}
+			if err2 = challenge_testing.WaitForTx(ctx, client, tx); err2 != nil {
+				return false, err2
+			}
+			return true, nil
+		}); err != nil {
 			panic(err)
 		}
 		txOpts.Value = big.NewInt(0)
 		maxUint256 := new(big.Int)
 		maxUint256.Exp(big.NewInt(2), big.NewInt(256), nil).Sub(maxUint256, big.NewInt(1))
 
-		if _, err = tokenBindings.Approve(txOpts, rollupAddr, maxUint256); err != nil {
+		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
+			tx, err2 := tokenBindings.Approve(txOpts, rollupAddr, maxUint256)
+			if err2 != nil {
+				return false, err2
+			}
+			if err2 = challenge_testing.WaitForTx(ctx, client, tx); err2 != nil {
+				return false, err2
+			}
+			return true, nil
+		}); err != nil {
 			panic(err)
 		}
-		if _, err = tokenBindings.Approve(txOpts, chalManagerAddr, maxUint256); err != nil {
+		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
+			tx, err2 := tokenBindings.Approve(txOpts, chalManagerAddr, maxUint256)
+			if err2 != nil {
+				return false, err2
+			}
+			if err2 = challenge_testing.WaitForTx(ctx, client, tx); err2 != nil {
+				return false, err2
+			}
+			return true, nil
+		}); err != nil {
 			panic(err)
 		}
 	}
@@ -195,9 +224,9 @@ func bridgeEth() {
 		if err != nil {
 			log.Fatalf("Failed to suggest gas price: %v", err)
 		}
-		twentyPercent := new(big.Int).Div(new(big.Int).Mul(gasPrice, big.NewInt(20)), big.NewInt(100))
+		fiftyPercent := new(big.Int).Div(new(big.Int).Mul(gasPrice, big.NewInt(50)), big.NewInt(100))
 		// Increase the suggested gas price by 20%
-		newGasPrice := new(big.Int).Add(gasPrice, twentyPercent)
+		newGasPrice := new(big.Int).Add(gasPrice, fiftyPercent)
 		tx := types.NewTransaction(nonce, toAddress, depositAmount, gasLimit, newGasPrice, data)
 		signer := types.NewCancunSigner(l1ChainId)
 		signedTx, err := types.SignTx(tx, signer, privateKey)
