@@ -128,6 +128,11 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
+		nonce, err := client.PendingNonceAt(ctx, txOpts.From)
+		if err != nil {
+			panic(err)
+		}
+		txOpts.Nonce = new(big.Int).SetUint64(nonce)
 		fmt.Printf("Nonce %d\n", txOpts.Nonce.Uint64())
 		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(suggested).String(), bumpPricePercent)
 		txOpts.GasPrice = bumpGasPrice(suggested)
