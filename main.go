@@ -130,6 +130,7 @@ func mintStakeToken() {
 		}
 		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(suggested).String(), bumpPricePercent)
 		txOpts.GasPrice = bumpGasPrice(suggested)
+		fmt.Printf("Bumped to price: %s gwei\n", weiToGwei(txOpts.GasPrice).String())
 
 		rollupAddr := common.HexToAddress(rollupAddrStr)
 		rollupBindings, err := rollupgen.NewRollupUserLogicCaller(rollupAddr, client)
@@ -210,6 +211,7 @@ func bridgeEth() {
 		}
 		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(gasPrice).String(), bumpPricePercent)
 		suggested := bumpGasPrice(gasPrice)
+		fmt.Printf("Bumped to price: %s gwei\n", weiToGwei(suggested).String())
 		tx := types.NewTransaction(nonce, toAddress, depositAmount, gasLimit, suggested, data)
 		signer := types.NewCancunSigner(l1ChainId)
 		signedTx, err := types.SignTx(tx, signer, privateKey)
