@@ -159,7 +159,11 @@ func mintStakeToken() {
 		maxUint256 := new(big.Int)
 		maxUint256.Exp(big.NewInt(2), big.NewInt(256), nil).Sub(maxUint256, big.NewInt(1))
 
-		fmt.Printf("Addr %#x giving rollup %#x a full allowance\n", txOpts.From, rollupAddr)
+		suggested, err = client.SuggestGasPrice(ctx)
+		if err != nil {
+			panic(err)
+		}
+		txOpts.GasPrice = bumpGasPrice(suggested)
 		tx, err = tokenBindings.Approve(txOpts, rollupAddr, maxUint256)
 		if err != nil {
 			panic(err)
@@ -167,6 +171,11 @@ func mintStakeToken() {
 		fmt.Printf("Sent rollup approve spending tx with hash %#x\n", tx.Hash())
 
 		fmt.Printf("Addr %#x giving challenge manager %#x a full allowance\n", txOpts.From, chalManagerAddr)
+		suggested, err = client.SuggestGasPrice(ctx)
+		if err != nil {
+			panic(err)
+		}
+		txOpts.GasPrice = bumpGasPrice(suggested)
 		tx, err = tokenBindings.Approve(txOpts, chalManagerAddr, maxUint256)
 		if err != nil {
 			panic(err)
