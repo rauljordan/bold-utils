@@ -12,10 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	retry "github.com/OffchainLabs/bold/runtime"
 	"github.com/OffchainLabs/bold/solgen/go/mocksgen"
 	"github.com/OffchainLabs/bold/solgen/go/rollupgen"
-	challenge_testing "github.com/OffchainLabs/bold/testing"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -34,6 +32,7 @@ var (
 	stakeTokenAddrStr string
 	inboxAddrStr      string
 	gweiToDeposit     uint64
+	bumpPricePercent  int64
 )
 
 var rootCmd = &cobra.Command{
@@ -65,6 +64,7 @@ func init() {
 	mintStakeTokenCmd.Flags().StringVarP(&rollupAddrStr, "rollup-address", "", "", "rollup address")
 	mintStakeTokenCmd.Flags().StringVarP(&stakeTokenAddrStr, "stake-token-address", "", "", "stake token address")
 	mintStakeTokenCmd.Flags().Uint64VarP(&gweiToDeposit, "gwei-to-deposit", "", 10000, "eth to deposit into tokens, in gwei")
+	mintStakeTokenCmd.Flags().Int64VarP(&bumpPricePercent, "bump-price-percent", "", 100, "percent to increase the suggested gas price by")
 
 	// Bind flags for bridge eth
 	bridgeEthCmd.Flags().StringVarP(&valPrivKeys, "validator-priv-keys", "", "", "comma-separated validator private keys")
@@ -72,6 +72,7 @@ func init() {
 	bridgeEthCmd.Flags().StringVarP(&l1EndpointUrl, "l1-endpoint", "", "", "l1 endpoint")
 	bridgeEthCmd.Flags().StringVarP(&inboxAddrStr, "inbox-address", "", "", "inbox address")
 	bridgeEthCmd.Flags().Uint64VarP(&gweiToDeposit, "gwei-to-deposit", "", 2000000, "eth to bridge over, in gwei (2M default, or 0.002 ETH)")
+	bridgeEthCmd.Flags().Int64VarP(&bumpPricePercent, "bump-price-percent", "", 100, "percent to increase the suggested gas price by")
 }
 
 func main() {
@@ -82,6 +83,13 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func bumpGasPrice(suggested *big.Int) *big.Int {
+	bumpMultiplier := new(big.Int).SetInt64(bumpPricePercent)
+	increase := new(big.Int).Mul(suggested, bumpMultiplier)
+	increasedGasPrice := new(big.Int).Div(increase, big.NewInt(100))
+	return new(big.Int).Add(suggested, increasedGasPrice)
 }
 
 func mintStakeToken() {
@@ -114,8 +122,8 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
-		doubled := new(big.Int).Mul(suggested, big.NewInt(2))
-		txOpts.GasPrice = doubled
+		fmt.Printf("Suggested gas price: %s wei, bumping by %d percent\n", suggested.String(), bumpPricePercent)
+		txOpts.GasPrice = bumpGasPrice(suggested)
 
 		rollupAddr := common.HexToAddress(rollupAddrStr)
 		rollupBindings, err := rollupgen.NewRollupUserLogicCaller(rollupAddr, client)
@@ -132,60 +140,31 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
-		allow, err := tokenBindings.Allowance(&bind.CallOpts{}, txOpts.From, rollupAddr)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Addr %#x gave rollup %#x allowance of %#x\n", txOpts.From, rollupAddr, allow.Bytes())
-
-		allow, err = tokenBindings.Allowance(&bind.CallOpts{}, txOpts.From, chalManagerAddr)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Addr %#x gave chal manager addr %#x allowance of %#x\n", txOpts.From, chalManagerAddr, allow.Bytes())
 
 		depositAmount := new(big.Int).SetUint64(gweiToDeposit * params.GWei)
 		txOpts.Value = depositAmount
-		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
-			tx, err2 := tokenBindings.Deposit(txOpts)
-			if err2 != nil {
-				return false, err2
-			}
-			if err2 = challenge_testing.WaitForTx(ctx, client, tx); err2 != nil {
-				return false, err2
-			}
-			return true, nil
-		}); err != nil {
+		tx, err := tokenBindings.Deposit(txOpts)
+		if err != nil {
 			panic(err)
 		}
+		fmt.Printf("Sent token deposit tx with hash %#x\n", tx.Hash())
 		txOpts.Value = big.NewInt(0)
 		maxUint256 := new(big.Int)
 		maxUint256.Exp(big.NewInt(2), big.NewInt(256), nil).Sub(maxUint256, big.NewInt(1))
 
-		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
-			tx, err2 := tokenBindings.Approve(txOpts, rollupAddr, maxUint256)
-			if err2 != nil {
-				return false, err2
-			}
-			if err2 = challenge_testing.WaitForTx(ctx, client, tx); err2 != nil {
-				return false, err2
-			}
-			return true, nil
-		}); err != nil {
+		fmt.Printf("Addr %#x giving rollup %#x a full allowance\n", txOpts.From, rollupAddr)
+		tx, err = tokenBindings.Approve(txOpts, rollupAddr, maxUint256)
+		if err != nil {
 			panic(err)
 		}
-		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
-			tx, err2 := tokenBindings.Approve(txOpts, chalManagerAddr, maxUint256)
-			if err2 != nil {
-				return false, err2
-			}
-			if err2 = challenge_testing.WaitForTx(ctx, client, tx); err2 != nil {
-				return false, err2
-			}
-			return true, nil
-		}); err != nil {
+		fmt.Printf("Sent rollup approve spending tx with hash %#x\n", tx.Hash())
+
+		fmt.Printf("Addr %#x giving challenge manager %#x a full allowance\n", txOpts.From, chalManagerAddr)
+		tx, err = tokenBindings.Approve(txOpts, chalManagerAddr, maxUint256)
+		if err != nil {
 			panic(err)
 		}
+		fmt.Printf("Sent challenge manager approve spending tx with hash %#x\n", tx.Hash())
 	}
 }
 
@@ -223,24 +202,17 @@ func bridgeEth() {
 		if err != nil {
 			log.Fatalf("Failed to suggest gas price: %v", err)
 		}
-		doubled := new(big.Int).Mul(gasPrice, big.NewInt(2))
-		tx := types.NewTransaction(nonce, toAddress, depositAmount, gasLimit, doubled, data)
+		fmt.Printf("Suggested gas price: %s wei, bumping by %d percent\n", gasPrice.String(), bumpPricePercent)
+		suggested := bumpGasPrice(gasPrice)
+		tx := types.NewTransaction(nonce, toAddress, depositAmount, gasLimit, suggested, data)
 		signer := types.NewCancunSigner(l1ChainId)
 		signedTx, err := types.SignTx(tx, signer, privateKey)
 		if err != nil {
 			log.Fatalf("Failed to sign transaction: %v", err)
 		}
-		if _, err = retry.UntilSucceeds[bool](ctx, func() (bool, error) {
-			err2 := client.SendTransaction(ctx, signedTx)
-			if err2 != nil {
-				return false, err2
-			}
-			if err2 = challenge_testing.WaitForTx(ctx, client, signedTx); err2 != nil {
-				return false, err2
-			}
-			return true, nil
-		}); err != nil {
-			panic(err)
+		err = client.SendTransaction(ctx, signedTx)
+		if err != nil {
+			log.Fatalf("Failed to send transaction: %v", err)
 		}
 		fmt.Printf("Sent transaction: %s", signedTx.Hash().Hex())
 	}
