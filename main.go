@@ -155,7 +155,7 @@ func mintStakeToken() {
 			panic(err)
 		}
 
-		depositAmount, ok := new(big.Int).SetString(weiToDeposit, 10)
+		depositAmount, ok := new(big.Int).SetString(weiToMint, 10)
 		if !ok {
 			panic("Not ok deposit amount")
 		}
