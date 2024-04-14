@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -31,7 +30,8 @@ var (
 	rollupAddrStr     string
 	stakeTokenAddrStr string
 	inboxAddrStr      string
-	gweiToDeposit     uint64
+	weiToDeposit      string
+	weiToMint         string
 	bumpPricePercent  int64
 )
 
@@ -63,7 +63,7 @@ func init() {
 	mintStakeTokenCmd.Flags().StringVarP(&l1EndpointUrl, "l1-endpoint", "", "", "l1 endpoint")
 	mintStakeTokenCmd.Flags().StringVarP(&rollupAddrStr, "rollup-address", "", "", "rollup address")
 	mintStakeTokenCmd.Flags().StringVarP(&stakeTokenAddrStr, "stake-token-address", "", "", "stake token address")
-	mintStakeTokenCmd.Flags().Uint64VarP(&gweiToDeposit, "gwei-to-deposit", "", 50000000000, "eth to deposit into tokens, in gwei, default (50 WETH)")
+	mintStakeTokenCmd.Flags().StringVarP(&weiToMint, "wei-to-mint", "", "100000000000000000000", "eth to mint into erc20 WETH tokens, in wei, default (50 WETH)")
 	mintStakeTokenCmd.Flags().Int64VarP(&bumpPricePercent, "bump-price-percent", "", 100, "percent to increase the suggested gas price by")
 
 	// Bind flags for bridge eth
@@ -71,7 +71,7 @@ func init() {
 	bridgeEthCmd.Flags().StringVarP(&l1ChainIdStr, "l1-chain-id", "", "11155111", "l1 chain id (sepolia default)")
 	bridgeEthCmd.Flags().StringVarP(&l1EndpointUrl, "l1-endpoint", "", "", "l1 endpoint")
 	bridgeEthCmd.Flags().StringVarP(&inboxAddrStr, "inbox-address", "", "", "inbox address")
-	bridgeEthCmd.Flags().Uint64VarP(&gweiToDeposit, "gwei-to-deposit", "", 2000000, "eth to bridge over, in gwei (2M default, or 0.002 ETH)")
+	bridgeEthCmd.Flags().StringVarP(&weiToDeposit, "wei-to-deposit", "", "2000000000000000", "eth to bridge over, in wei (0.002 ETH)")
 	bridgeEthCmd.Flags().Int64VarP(&bumpPricePercent, "bump-price-percent", "", 100, "percent to increase the suggested gas price by")
 }
 
@@ -155,7 +155,10 @@ func mintStakeToken() {
 			panic(err)
 		}
 
-		depositAmount := new(big.Int).SetUint64(gweiToDeposit * params.GWei)
+		depositAmount, ok := new(big.Int).SetString(weiToDeposit, 10)
+		if !ok {
+			panic("Not ok deposit amount")
+		}
 		txOpts.Value = depositAmount
 		tx, err := tokenBindings.Deposit(txOpts)
 		if err != nil {
@@ -211,7 +214,10 @@ func bridgeEth() {
 	privKeyStrings := strings.Split(valPrivKeys, ",")
 	toAddress := common.HexToAddress(inboxAddrStr)
 	data := common.Hex2Bytes("0f4d14e9000000000000000000000000000000000000000000000000000082f79cd90000")
-	depositAmount := new(big.Int).SetUint64(gweiToDeposit * params.GWei)
+	depositAmount, ok := new(big.Int).SetString(weiToMint, 10)
+	if !ok {
+		panic("not ok deposit amount")
+	}
 	gasLimit := uint64(150000)
 	fmt.Println("Now bridging ETH from Sepolia to the Arbitrum BOLD L2 rollup")
 	for _, privKeyStr := range privKeyStrings {
