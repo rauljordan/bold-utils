@@ -114,6 +114,8 @@ func mintStakeToken() {
 	if valPrivKeys == "" {
 		panic("no validator private keys set")
 	}
+	fmt.Println("Now minting the stake token required for BOLD assertion posting and challenge participation")
+	fmt.Println("This command will convert the specified amount of testnet ETH into a WETH ERC-20 stake token")
 	privKeyStrings := strings.Split(valPrivKeys, ",")
 	for _, privKeyStr := range privKeyStrings {
 		validatorPrivateKey, err := crypto.HexToECDSA(privKeyStr)
@@ -133,7 +135,6 @@ func mintStakeToken() {
 			panic(err)
 		}
 		txOpts.Nonce = new(big.Int).SetUint64(nonce)
-		fmt.Printf("Nonce %d\n", txOpts.Nonce.Uint64())
 		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(suggested).String(), bumpPricePercent)
 		txOpts.GasPrice = bumpGasPrice(suggested)
 		fmt.Printf("Bumped to price: %s gwei\n", weiToGwei(txOpts.GasPrice).String())
@@ -160,7 +161,7 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Sent token deposit tx with hash %#x\n", tx.Hash())
+		fmt.Printf("Sent token minting tx with hash %#x\n", tx.Hash())
 		txOpts.Value = big.NewInt(0)
 		maxUint256 := new(big.Int)
 		maxUint256.Exp(big.NewInt(2), big.NewInt(256), nil).Sub(maxUint256, big.NewInt(1))
@@ -170,23 +171,22 @@ func mintStakeToken() {
 			panic(err)
 		}
 		txOpts.Nonce = new(big.Int).Add(txOpts.Nonce, big.NewInt(1))
-		fmt.Printf("Nonce %d\n", txOpts.Nonce.Uint64())
 		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(suggested).String(), bumpPricePercent)
 		txOpts.GasPrice = bumpGasPrice(suggested)
 		fmt.Printf("Bumped to price: %s gwei\n", weiToGwei(txOpts.GasPrice).String())
+		fmt.Printf("Your %#x address is giving the BOLD rollup contract %#x a full allowance\n", txOpts.From, rollupAddr)
 		tx, err = tokenBindings.Approve(txOpts, rollupAddr, maxUint256)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Sent rollup approve spending tx with hash %#x\n", tx.Hash())
+		fmt.Printf("Sent tx that approves the rollup contract's spending of your WETH ERC-20 with hash %#x\n", tx.Hash())
 
-		fmt.Printf("Addr %#x giving challenge manager %#x a full allowance\n", txOpts.From, chalManagerAddr)
+		fmt.Printf("Now your %#x address is giving the BOLD challenge manager contract %#x a full allowance\n", txOpts.From, chalManagerAddr)
 		suggested, err = client.SuggestGasPrice(ctx)
 		if err != nil {
 			panic(err)
 		}
 		txOpts.Nonce = new(big.Int).Add(txOpts.Nonce, big.NewInt(1))
-		fmt.Printf("Nonce %d\n", txOpts.Nonce.Uint64())
 		fmt.Printf("Suggested gas price: %s gwei, bumping by %d percent\n", weiToGwei(suggested).String(), bumpPricePercent)
 		txOpts.GasPrice = bumpGasPrice(suggested)
 		fmt.Printf("Bumped to price: %s gwei\n", weiToGwei(txOpts.GasPrice).String())
@@ -194,7 +194,7 @@ func mintStakeToken() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Sent challenge manager approve spending tx with hash %#x\n", tx.Hash())
+		fmt.Printf("Sent tx that approves challenge manager's spending of your WETH ERC-20 with hash %#x\n", tx.Hash())
 	}
 }
 
@@ -213,6 +213,7 @@ func bridgeEth() {
 	data := common.Hex2Bytes("0f4d14e9000000000000000000000000000000000000000000000000000082f79cd90000")
 	depositAmount := new(big.Int).SetUint64(gweiToDeposit * params.GWei)
 	gasLimit := uint64(150000)
+	fmt.Println("Now bridging ETH from Sepolia to the Arbitrum BOLD L2 rollup")
 	for _, privKeyStr := range privKeyStrings {
 		privateKey, err := crypto.HexToECDSA(privKeyStr)
 		if err != nil {
