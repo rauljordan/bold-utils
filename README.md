@@ -10,7 +10,7 @@ Usage:
   bold-utils bridge-eth [flags]
 
 Flags:
-      --gwei-to-deposit uint         eth to bridge over, in gwei (2M default, or 0.002 ETH) (default 2000000)
+      --wei-to-deposit uint          eth to bridge over, in wei (0.002 ETH)
   -h, --help                         help for bridge-eth
       --inbox-address string         inbox address
       --l1-chain-id string           l1 chain id (sepolia default) (default "11155111")
@@ -25,7 +25,7 @@ Usage:
   bold-utils mint-stake-token [flags]
 
 Flags:
-      --gwei-to-deposit uint         eth to deposit into tokens, in gwei (default 50000000000)
+      --wei-to-mint uint             eth to mint into tokens, in wei (default 50 WETH)
   -h, --help                         help for mint-stake-token
       --l1-chain-id string           l1 chain id (sepolia default) (default "11155111")
       --l1-endpoint string           l1 endpoint
