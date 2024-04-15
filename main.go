@@ -155,7 +155,7 @@ func mintStakeToken() {
 			panic(err)
 		}
 
-		depositAmount, ok := new(big.Int).SetString(weiToDeposit, 10)
+		depositAmount, ok := new(big.Int).SetString(weiToMint, 10)
 		if !ok {
 			panic("Not ok deposit amount")
 		}
@@ -214,7 +214,7 @@ func bridgeEth() {
 	privKeyStrings := strings.Split(valPrivKeys, ",")
 	toAddress := common.HexToAddress(inboxAddrStr)
 	data := common.Hex2Bytes("0f4d14e9000000000000000000000000000000000000000000000000000082f79cd90000")
-	depositAmount, ok := new(big.Int).SetString(weiToMint, 10)
+	depositAmount, ok := new(big.Int).SetString(weiToDeposit, 10)
 	if !ok {
 		panic("not ok deposit amount")
 	}
